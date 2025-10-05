@@ -1,132 +1,234 @@
-awesome — here’s a **complete C2 (Container) visual text diagram** for your platform, plus **detailed descriptions** of every runtime container/service and the key interfaces between them. It’s formatted to drop straight into your ARB doc.
+Perfect — let’s now move to the **C3 (Component) level**, where we dive *inside each main container* (Angular SPA, API Gateway + Lambda, and DynamoDB).
+
+This view shows **how your system’s major internal building blocks interact**, while still hiding code details (those belong in C4).
 
 ---
 
-# C2 — Containers (Deployable/Runtime Building Blocks)
+# C3 — Components (Inside the Major Containers)
+
+---
+
+## 🧭 Overview
+
+At C3, your system contains **three core functional containers**:
+
+1. **Angular SPA (Front-End)** – client application for all user personas.
+2. **API Tier (API Gateway + Lambda)** – backend APIs implementing business logic.
+3. **Data Layer (DynamoDB Global Tables)** – persistent onboarding metadata store.
+
+Each container’s components and interactions are shown below.
+
+---
+
+## 1️⃣ Angular SPA (served from NGINX on ECS)
 
 ```
-Global Edge
-===========
++-----------------------------------------------------------------------------------+
+| Angular Single Page Application (SPA) – Self-Serve Onboarding Portal              |
+|-----------------------------------------------------------------------------------|
+| Components:                                                                      |
+|                                                                                   |
+|  +--------------------+   +------------------+   +------------------------------+ |
+|  | UI Components      |   | Router & Guards  |   | Validation & Form Service   | |
+|  | - Onboarding Form  |   | - AuthGuard      |   | - Input sanitization        | |
+|  | - Request List     |   | - Route Resolver |   | - Error handling            | |
+|  | - Request Detail   |   | - Role-based Nav |   | - Data shaping for API      | |
+|  +---------+----------+   +---------+--------+   +---------------+-------------+ |
+|            |                        |                            |               |
+|            v                        v                            v               |
+|  +-------------------+   +-------------------+   +------------------------------+ |
+|  | Okta SDK          |   | HTTP Interceptor  |   | ApiService (REST client)    | |
+|  | @okta/okta-angular|   | - Adds Bearer JWT |   | - createRequest()           | |
+|  | - PKCE Login Flow |   | - Logs requests   |   | - getRequest()              | |
+|  | - Token Mgmt      |   | - Retry logic     |   | - listRequests()            | |
+|  +---------+----------+   +------------------+   +---------------+-------------+ |
+|            |                                                       |             |
+|            v                                                       v             |
+|  +--------------------------------------------------------------------------------+
+|  | External Interaction:                                                         |
+|  |  - Calls Okta OIDC endpoints for Auth (authorize/token/revoke)                |
+|  |  - Sends HTTPS requests to API Gateway with Authorization: Bearer <token>     |
+|  |  - Reads config.json for base URLs per environment                            |
+|  +--------------------------------------------------------------------------------+
+|                                                                                   |
+| Notes:                                                                            |
+| - Role-based access controlled via Okta groups (onboarding-admin/viewer).         |
+| - Uses Angular environment configs (dev/test/prod) to point to correct API.       |
+| - Strict CSP limits connections to Okta + API only.                               |
++-----------------------------------------------------------------------------------+
+```
 
-            +---------------------------------------------------------------+
-            |                         Route 53 (DNS)                        |
-            |    A/AAAA latency alias:  app.<domain>, api.<domain>         |
-            +-------------------+---------------------------+---------------+
-                                |                           |
-                                | (to nearest healthy)      | (to nearest healthy)
-                                v                           v
+### Key Interactions
 
-Region A: us-west-2 (Active)                                   Region B: us-east-1 (Active)
-==================================================             ==============================================
- VPC (10.40.0.0/16), 3 Public + 3 Private AZs                   VPC (10.50.0.0/16), 3 Public + 3 Private AZs
- IGW, NAT GW x3, SGs, optional VPC Endpoints                    IGW, NAT GW x3, SGs, optional VPC Endpoints
+* **Customer / Internal Ops → UI Components** → submit forms / view requests.
+* **RouterGuard** checks authentication before navigating to protected routes.
+* **Okta SDK** handles PKCE flow and stores tokens.
+* **HTTP Interceptor** appends `Authorization` header to outbound API calls.
+* **ApiService** sends HTTPS requests to backend endpoints.
 
-   Public Subnets (a,b,c)                                          Public Subnets (a,b,c)
-   ------------------------                                         ------------------------
-   +----------------------------+                                   +----------------------------+
-   |  WAF (optional, managed)   |                                   |  WAF (optional, managed)   |
-   +-------------+--------------+                                   +-------------+--------------+
-                 |                                                                |
-   +-------------v--------------+                                   +-------------v--------------+
-   |  Application Load Balancer |                                   |  Application Load Balancer |
-   |  (HTTPS 443, HTTP->HTTPS)  |                                   |  (HTTPS 443, HTTP->HTTPS)  |
-   +-------------+--------------+                                   +-------------+--------------+
-                 |  Targets: ECS (IP mode)                                         |  Targets: ECS (IP mode)
-                 |                                                                  |
-   Private Subnets (a,b,c)                                            Private Subnets (a,b,c)
-   -------------------------                                           -------------------------
-   +-------------+--------------+                                   +-------------+--------------+
-   | ECS Service (Fargate)      |                                   | ECS Service (Fargate)      |
-   | NGINX serves Angular SPA   |                                   | NGINX serves Angular SPA   |
-   | 3 tasks (1 per AZ)         |                                   | 3 tasks (1 per AZ)         |
-   +-------------+--------------+                                   +-------------+--------------+
+---
 
-   (Browser loads SPA from ALB → ECS. SPA calls API with Bearer token)
+## 2️⃣ API Tier (API Gateway + Lambda Function)
 
-   API Tier (Regional)                                              API Tier (Regional)
-   -------------------                                              -------------------
-   +-------------+--------------+                                   +-------------+--------------+
-   | API Gateway (HTTP API)     |<-- custom domain: api.<domain> -->| API Gateway (HTTP API)     |
-   |  CORS=app.<domain>, Logs   |                                   |  CORS=app.<domain>, Logs   |
-   +-------------+--------------+                                   +-------------+--------------+
-                 |  JWT Authorizer (Okta issuer/audience)                         |  JWT Authorizer (Okta)
-                 v                                                                v
-   +-------------+--------------+                                   +-------------+--------------+
-   |  Lambda: onboarding_api    |                                   |  Lambda: onboarding_api    |
-   |  scope/group checks        |                                   |  scope/group checks        |
-   +-------------+--------------+                                   +-------------+--------------+
-                 |  boto3 DDB                                                    |  boto3 DDB
-                 v                                                                v
-   +-------------+--------------+       <=== Global Tables Replication ===>      +-------------+--------------+
-   | DynamoDB Table (Replica A) | <------------------------------------------->  | DynamoDB Table (Replica B) |
-   | GSIs: byCustomer/byStatus  |                                               | GSIs: byCustomer/byStatus  |
-   +----------------------------+                                               +----------------------------+
+```
++--------------------------------------------------------------------------------------+
+| API Gateway (HTTP API) – JWT Auth + Routing                                          |
+|--------------------------------------------------------------------------------------|
+| Components:                                                                         |
+|  - Routes:                                                                          |
+|     • POST /requests                → Lambda.post_request()                         |
+|     • GET /requests/{id}            → Lambda.get_request()                          |
+|     • GET /requests?customerId|status → Lambda.list_requests()                      |
+|  - JWT Authorizer (Okta)                                                             |
+|     • Validates issuer, audience, exp, sig                                           |
+|     • Passes claims in requestContext.authorizer.jwt.claims                          |
+|  - Access Logs (CloudWatch)                                                          |
+|--------------------------------------------------------------------------------------|
+| Interaction:                                                                        |
+|  API Gateway → Validates Token → Invokes Lambda with JSON Event                      |
++--------------------------------------------------------------------------------------+
 
-   Shared per Region
-   -----------------
-   +------------------------+   +-------------------+   +-----------------+   +----------------------+
-   | CloudWatch (Logs/Mets) |   | Secrets Manager   |   | KMS (CMKs)      |   | ECR (images+scan+rep)|
-   +------------------------+   +-------------------+   +-----------------+   +----------------------+
+Lambda Function: onboarding_api
+---------------------------------------------------------------
++---------------------------------------------------------------+
+| Components:                                                   |
+|                                                               |
+|  +----------------------+                                     |
+|  | Handler (entrypoint) |                                     |
+|  | - Parses event JSON   |                                    |
+|  | - Routes by HTTP verb |                                    |
+|  +----------+-----------+                                    |
+|             |                                              |
+|             v                                              |
+|  +----------+-----------+     +--------------------------+ |
+|  | Auth Module          |     | Validation Module        | |
+|  | - _claims_from_event |     | - schema validation      | |
+|  | - _require_scope     |     | - rejects invalid input  | |
+|  | - _is_admin          |     | - strips dangerous chars | |
+|  +----------+-----------+     +-----------+--------------+ |
+|             |                                 |             |
+|             v                                 v             |
+|  +----------+-----------+     +--------------+-------------+|
+|  | DynamoDB Repository  |     | Response Builder           ||
+|  | - put_request()      |     | - success/error JSON       ||
+|  | - get_request()      |     | - consistent format        ||
+|  | - query_by_customer()|     +--------------+-------------+|
+|  | - query_by_status()  |                    ^              |
+|  +----------+-----------+                    |              |
+|             |                                |              |
+|             +--------------------------------+--------------+
+|                               CloudWatch Logs (structured JSON) |
+|                               X-Ray traces (optional)           |
++-----------------------------------------------------------------+
+| Interaction summary:                                            |
+|  - API GW → Lambda (event + validated JWT)                      |
+|  - Lambda → DDB (via boto3 SDK)                                 |
+|  - Returns JSON to client                                       |
+|  - Logs, metrics, alarms via CloudWatch                         |
++-----------------------------------------------------------------+
+```
 
-External Identity (Global)
---------------------------
-+------------------------------------------------------------------------------------------------------+
-|  Okta (IdP): OIDC PKCE, Custom Authorization Server (issuer), scopes (read/write), groups (admin)   |
-+------------------------------------------------------------------------------------------------------+
+### Key Interactions
+
+* **API Gateway**: Handles CORS, token validation, routing, and logs.
+* **Lambda**: Core business logic — validates scope/role, applies idempotency, reads/writes DynamoDB.
+* **DynamoDB**: Persistent store for all onboarding requests.
+* **CloudWatch**: Captures metrics and logs (structured JSON for traceability).
+
+---
+
+## 3️⃣ Data Layer (DynamoDB Global Tables)
+
+```
++-----------------------------------------------------------------------------------+
+| DynamoDB Global Table: onboarding-requests                                        |
+|-----------------------------------------------------------------------------------|
+| Primary Keys:                                                                    |
+|   pk = "REQ#<uuid>"       (partition key)                                        |
+|   sk = "META"             (sort key)                                             |
+|                                                                                   |
+| GSIs:                                                                            |
+|   GSI1 (byCustomer): gsi1pk="CUST#<customerId>", gsi1sk="<createdAt>"            |
+|   GSI2 (byStatus):   gsi2pk="STATUS#<status>",   gsi2sk="<createdAt>"            |
+|                                                                                   |
+| Attributes:                                                                      |
+|   requestId, customerId, workflowType, source, target, config, env, status,       |
+|   createdAt, updatedAt, version (optional for optimistic locking)                 |
+|                                                                                   |
+| Replication:                                                                     |
+|   Global Table replication between us-west-2 <=> us-east-1                        |
+|   (eventual consistency, last writer wins)                                       |
+|                                                                                   |
+| Backups & Security:                                                              |
+|   • PITR (Point-in-Time Recovery) enabled                                         |
+|   • SSE-KMS encryption with CMK                                                  |
+|   • IAM least-privilege policies (Lambda only)                                   |
++-----------------------------------------------------------------------------------+
+```
+
+### Key Interactions
+
+* **Lambda → DynamoDB**:
+
+  * `PutItem` (idempotent write with `attribute_not_exists(pk)`).
+  * `Query` (by GSI for customer/status).
+  * `UpdateItem` (conditional update with optimistic locking).
+* **DynamoDB → Streams (optional)**:
+
+  * Can feed analytics, audit, or cross-system triggers.
+* **Global Replication**:
+
+  * Active-active (West/East) with eventual consistency.
+
+---
+
+## 🔐 Cross-Cutting Components (Security / Observability)
+
+```
++------------------------------------------------------------+
+| Security & Monitoring (shared across all containers)       |
+|------------------------------------------------------------|
+|  • Okta (OIDC PKCE) – AuthN/AuthZ for all personas.        |
+|  • WAF – L7 protection at ALB & API Gateway.               |
+|  • IAM – least privilege roles per Lambda/ECS/DDB.         |
+|  • KMS – encryption for logs, secrets, DynamoDB.           |
+|  • Secrets Manager – credential storage, rotation.         |
+|  • CloudWatch – metrics, structured logs, alarms.          |
++------------------------------------------------------------+
 ```
 
 ---
 
-# C2 — Detailed Container/Service Descriptions
+# 🧩 C3 Component Summary Table
 
-| #  | Container / Service                            | Runtime / Scope                     | Purpose & Responsibilities                                                                     | Interfaces (Ports/Proto)                                          | Scaling & HA                                                    | Security & Config                                                                                                       |                                                                            |
-| -- | ---------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 1  | **Route 53 (DNS)**                             | Global                              | Latency-based routing and regional failover for `app.<domain>` and `api.<domain>`.             | DNS A/AAAA alias to ALB & API custom domains                      | Global, multi-POP                                               | Health checks on ALB & API; TTL 30–60s                                                                                  |                                                                            |
-| 2  | **AWS WAF** (optional, recommended)            | Per region (edge for ALB & API)     | Filters common exploits (SQLi, XSS, bots), rate limits.                                        | Inline with ALB (L7) and API Gateway                              | Managed, multi-AZ                                               | AWS Managed rules + IP reputation; JSON logs to S3                                                                      |                                                                            |
-| 3  | **ALB (Application Load Balancer)**            | Per region, public subnets (3 AZs)  | TLS termination; serves Angular SPA from ECS; 80→443 redirect; health checks.                  | 80/443 from Internet → target group (ECS IP:80)                   | Multi-AZ; targets spread across 3 AZs                           | ACM cert; SG: 80/443 from 0.0.0.0/0; WAF attached; idle timeout 60s                                                     |                                                                            |
-| 4  | **ECS Cluster + Service (Fargate)**            | Per region, private subnets (3 AZs) | Hosts **NGINX** container to serve the **Angular SPA** (static assets + SPA routing fallback). | ALB → container :80 (HTTP); ECR for images                        | **Desired 3** (1 per AZ); auto-scale on CPU/Mem/ALBRequestCount | Task SG only allows from ALB SG; awslogs to CloudWatch; NGINX with HSTS, XFO, XCTO, Referrer-Policy, **CSP (Okta+API)** |                                                                            |
-| 5  | **ECR (Elastic Container Registry)**           | Per account/region                  | Stores NGINX+SPA images; scans on push; replicates across regions.                             | ECR API/DKR                                                       | Regional; replication enabled                                   | Scan-on-push; lifecycle rules; IAM least-privilege for push/pull                                                        |                                                                            |
-| 6  | **API Gateway (HTTP API)** + **Custom Domain** | Per region                          | Receives SPA API calls; performs **JWT validation** via Authorizer; forwards to Lambda.        | HTTPS 443; identity source: `Authorization` header                | Regional, multi-AZ                                              | CORS: allow only `https://app.<domain>`; access logs; WAF optional                                                      |                                                                            |
-| 7  | **JWT Authorizer (Okta)**                      | Config on API GW                    | Validates JWTs from Okta against **issuer** and **audience**; rejects invalid before Lambda.   | n/a (control plane)                                               | n/a                                                             | Issuer: `https://<okta>/oauth2/<authz-server>`; Audience: `api.onboarding`; cache TTL 0–300s                            |                                                                            |
-| 8  | **Lambda: `onboarding_api`**                   | Per region (serverless)             | Implements endpoints: POST `/requests`, GET `/requests/{id}`, GET `/requests?customerId        | status`; enforces scopes/groups; idempotent writes; logs/metrics. | Invoked by API GW; SDK to DynamoDB                              | Auto scales; concurrency limits/alarms                                                                                  | IAM least-privilege (DDB read/write + logs); optional DLQ; structured logs |
-| 9  | **DynamoDB (Global Table)**                    | Replicated across both regions      | Stores onboarding metadata; **GSIs** for by-customer & by-status; PITR.                        | AWS SDK (HTTPS)                                                   | Serverless, highly available                                    | PAY_PER_REQUEST; PITR ON; SSE-KMS CMK; conditional writes for idempotency; Streams optional                             |                                                                            |
-| 10 | **CloudWatch (Logs/Metrics/Alarms)**           | Per region                          | Centralized logs (ALB/ECS/Lambda/API); metrics & alarms (5xx, throttles, replication lag).     | HTTPS agent/APIs                                                  | Regional                                                        | Retention 14–90d; SNS/PagerDuty alerts; dashboards per region + global                                                  |                                                                            |
-| 11 | **Secrets Manager**                            | Per region                          | Stores API secrets or integration credentials (if/when needed).                                | HTTPS                                                             | Regional                                                        | Rotation where applicable; IAM scoping to Lambda only                                                                   |                                                                            |
-| 12 | **KMS (CMKs)**                                 | Per region                          | Encryption for DDB, logs, and secrets; access audit.                                           | n/a                                                               | Regional                                                        | Key policies least-privilege; rotation per policy                                                                       |                                                                            |
-| 13 | **VPC & Networking** (IGW, NAT x3, Endpoints)  | Per region                          | Network isolation; NAT for private tasks; optional endpoints for S3, DDB, CW Logs, ECR.        | Layer-3 routing                                                   | Multi-AZ                                                        | One NAT per AZ; SGs over NACLs; endpoint policies restrict egress                                                       |                                                                            |
-| 14 | **Okta (IdP)**                                 | External (global)                   | OIDC PKCE login for SPA; issues ID/Access/Refresh; groups/roles in claims; MFA policies.       | OIDC/OAuth2 over HTTPS                                            | SaaS SLA                                                        | Custom AuthZ Server; redirect URIs & CORS locked; refresh token rotation                                                |                                                                            |
-
----
-
-## Key Interfaces (C2-level Contracts)
-
-* **Browser → ALB (HTTPS 443):** Fetch SPA (HTML/JS/CSS); HSTS; CSP allows `*.okta.com` and `api.<domain>`.
-* **Browser (SPA) → API (HTTPS 443):** `Authorization: Bearer <access_token>` header; JSON REST.
-* **API Gateway → JWT Authorizer:** Validates `iss`/`aud`/`exp`/signature; blocks unauthenticated calls.
-* **API Gateway → Lambda:** Event v2; passes validated JWT claims under `requestContext.authorizer.jwt.claims`.
-* **Lambda → DynamoDB:** SDK calls; conditional Put for idempotency (`attribute_not_exists(pk)`), Query via GSIs.
-* **ALB → ECS tasks:** Health check path `/health` (200–399); target type = **ip**; one task per AZ.
-* **ECR Replication:** Ensures the same image tag exists in both regions for consistent deploys.
-* **Route 53 Latency Routing:** Directs each user to the nearest healthy **region**; health checks on ALB and API domain.
+| #  | Container   | Component                 | Description                                       | Interfaces                | Security / Observability                   |
+| -- | ----------- | ------------------------- | ------------------------------------------------- | ------------------------- | ------------------------------------------ |
+| 1  | Angular SPA | **UI Components**         | Onboarding form, list, detail views               | User → Browser            | Input validation, CSP, Okta login required |
+| 2  | Angular SPA | **Router & Guards**       | Route protection, redirects unauthenticated users | Okta SDK                  | Role-based route control                   |
+| 3  | Angular SPA | **Okta SDK**              | Handles PKCE login/logout/token                   | Okta endpoints            | Token storage in-memory                    |
+| 4  | Angular SPA | **HTTP Interceptor**      | Attaches Bearer token to API calls                | API Gateway               | Logs failures; CORS applied                |
+| 5  | Angular SPA | **ApiService**            | Calls backend REST endpoints                      | HTTPS                     | JWT required                               |
+| 6  | API Tier    | **API Gateway**           | Routes REST calls to Lambda                       | SPA → HTTPS               | JWT validation, WAF, logs                  |
+| 7  | API Tier    | **JWT Authorizer (Okta)** | Verifies token issuer/audience                    | API Gateway control plane | Enforces AuthN/AuthZ                       |
+| 8  | API Tier    | **Lambda Handler**        | Routes request to sub-handlers                    | API Gateway               | IAM + Logs                                 |
+| 9  | API Tier    | **Auth Module**           | Scope and group validation                        | JWT claims                | Deny unauthorized                          |
+| 10 | API Tier    | **Validation Module**     | Input schema validation                           | Event payload             | Logs validation errors                     |
+| 11 | API Tier    | **DynamoDB Repository**   | Performs CRUD using boto3                         | DynamoDB SDK              | Idempotent writes                          |
+| 12 | Data Layer  | **DynamoDB Global Table** | Persists onboarding requests                      | Lambda                    | KMS encryption, PITR                       |
+| 13 | Shared      | **CloudWatch**            | Central logging & alarms                          | All services              | Retention 30d                              |
+| 14 | Shared      | **KMS / Secrets Manager** | Key & secret management                           | ECS/Lambda                | Rotation enabled                           |
 
 ---
 
-## Non-Functional Concerns at C2 (what the board will ask)
+# 🧭 Summary
 
-* **Availability:** Active-active across **us-west-2** and **us-east-1**; **3 AZs** per region; one ECS task per AZ minimum; DynamoDB Global Tables.
-* **Security:** Okta OIDC PKCE; JWT Authorizer in API GW; WAF; IAM least-privilege; KMS; Secrets Manager; strict CORS & CSP.
-* **Scalability:** ALB scales L7; ECS service autoscaling; API Gateway & Lambda scale elastically; DynamoDB is serverless.
-* **Observability:** CloudWatch logs/metrics/alarms; per-region dashboards; 5xx, latency, throttles, DDB replication lag.
-* **Cost Controls:** PAY_PER_REQUEST DDB; ECS right-sizing; consider VPC endpoints to reduce NAT traffic; ALB/WAF logging sampling.
-* **DR & Failover:** Route 53 health checks; simulate AZ/region impairments; validate idempotency & replication on recovery.
+At the **C3 level**, your architecture shows:
+
+* The **Angular SPA** handles UI, authentication, and API integration.
+* The **API Tier** (API Gateway + Lambda) encapsulates business logic, validation, and persistence.
+* The **Data Layer (DynamoDB)** provides durable, active-active storage.
+* Cross-cutting controls (Okta, IAM, KMS, CloudWatch) ensure security, traceability, and compliance.
 
 ---
 
-### Short “In a sentence” blurbs (for slide notes)
-
-* **ALB + ECS (NGINX):** “Delivers the Angular SPA over HTTPS, scales across three AZs, and terminates TLS/WAF at the edge.”
-* **API GW + JWT Authorizer:** “Validates Okta tokens at the door, ensuring only trusted, scoped calls reach our functions.”
-* **Lambda:** “Stateless business logic that enforces scopes/roles and writes/query onboarding metadata.”
-* **DynamoDB Global Tables:** “Active-active storage replicated across regions with PITR and KMS encryption.”
-
-If you want, I can also provide a **C2 Mermaid diagram** version to paste into Confluence alongside this ASCII.
+Would you like me to now generate the **C4 (Code/Class level)** diagram next — with key Lambda classes, helper modules, and data model (aligned to this C3)?
