@@ -1,44 +1,69 @@
-import socket, paramiko
+Perfect — let’s keep it **C1 level (System Context)**: only *system as a black box, external personas, and external systems*.
 
-HOST = "partner.host"
-PORT = 22
-USERNAME = "user"
-PASSWORD = "your-password"
+Here are the **C1 components with descriptions** you can use in your ARB deck:
 
-# Low-level socket first (better control over timeouts)
-sock = socket.create_connection((HOST, PORT), timeout=20)
-sock.settimeout(20)
+---
 
-t = paramiko.Transport(sock)
+## 🎯 C1 – System Context Components & Descriptions
 
-# If the server only presents an ssh-rsa (SHA-1) *host key*:
-sec = t.get_security_options()
-sec.key_types = ['ssh-rsa']  # legacy host-key algo (remove when server upgrades)
+### **System (in scope)**
 
-# If your logs later complain about kex/cipher/mac, add minimally:
-# sec.kex = ['diffie-hellman-group14-sha1']
-# sec.ciphers = ['aes128-ctr','aes256-ctr']      # add CBC only if absolutely necessary
-# sec.macs = ['hmac-sha2-256','hmac-sha1']
+* **Self-Serve Onboarding Portal**
 
-# Older / load-balanced servers can be slow to send the banner:
-t.banner_timeout = 60      # <-- important for "Error reading SSH protocol banner"
-t.start_client(timeout=20)
+  * **What:** The overall system being built — a web portal for customers and internal teams to onboard file transfer requests and query statuses.
+  * **How it’s used:**
 
-# OPTIONAL: verify/pin host key fingerprint here in prod
+    * Hosts the **Angular SPA** front-end (served to browsers).
+    * Exposes APIs (backed by AWS) for metadata submission and queries.
+  * **Boundary:** Internal technical implementation (ECS, ALB, API Gateway, DynamoDB, etc.) is hidden at this level.
 
-# Some servers say "password" but expect keyboard-interactive (PAM). Try password first:
-try:
-    t.auth_password(USERNAME, PASSWORD)
-except paramiko.ssh_exception.SSHException:
-    # Fall back to keyboard-interactive
-    def ki_handler(title, instructions, prompts):
-        return [PASSWORD for _ in prompts]
-    t.auth_interactive(USERNAME, ki_handler)
+---
 
-# Keep the session alive (middleboxes can drop idle SSH)
-t.set_keepalive(30)
+### **Personas (actors)**
 
-sftp = paramiko.SFTPClient.from_transport(t)
-print(sftp.listdir("."))
-sftp.close()
-t.close()
+* **Customer (External Partner/User)**
+
+  * Uses the portal to create onboarding requests (providing metadata such as source, target, environment).
+  * Can log in securely and track the status of requests.
+
+* **Internal Onboarding Team (Ops/Support Analyst)**
+
+  * Internal staff who manage or assist onboarding.
+  * Can log in with elevated roles (e.g., review, approve, troubleshoot requests).
+
+* **Platform Engineer / IT (Administrator/Maintainer)**
+
+  * Internal technical team responsible for running and maintaining the system.
+  * Not a “functional user,” but interacts indirectly by operating, monitoring, and securing the system.
+
+---
+
+### **External Systems (dependencies)**
+
+* **Okta (Identity Provider)**
+
+  * Provides secure authentication and authorization using OIDC PKCE.
+  * Issues ID/Access tokens (JWTs) with scopes and groups.
+  * Ensures only authenticated and authorized users can access the portal and APIs.
+
+* **(Optional) External File Transfer Endpoints**
+
+  * Future integration: customer or partner SFTP/S3 endpoints where files are ultimately moved.
+  * At C1, these are “external systems” if onboarding metadata references them.
+
+---
+
+## 🖼 C1 in Words (what the diagram shows)
+
+* The **Self-Serve Onboarding Portal** sits in the center as *the system under design*.
+* **Customers** and **Internal Ops** log in to it (via **Okta** for authentication).
+* **Platform Engineers** interact indirectly by maintaining the system.
+* The **Portal** may reference **external file endpoints** but doesn’t expose internal infra details.
+
+---
+
+✅ This way, **C1 tells the “who and what” story** for executives and the ARB — while **C2+ diagrams dive into the “how”** (ECS, ALB, API Gateway, DynamoDB).
+
+---
+
+👉 Do you want me to also **redraw the C1 diagram** in simple text (personas + system + Okta + optional external endpoints) with these descriptions alongside, so you can present one clean slide?
