@@ -81,5 +81,7 @@ I already have a short 1–2 page summary of the architecture and differentiator
 
 — Himanshu
 
+Just to illustrate that it’s already working in AWS, here’s a quick screenshot from CloudWatch showing the 10GB transfer completing successfully and chaining through multiple Lambda invocations.
+
 
 
