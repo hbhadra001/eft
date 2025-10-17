@@ -72,5 +72,14 @@ aws lambda update-function-code --function-name YOUR_FUNCTION --zip-file fileb:/
 # Create an empty 10 GB file (sparse, fast)
 fsutil file createnew "C:\temp\test10GB.bin" 10737418240
 
+Hey [], 👋
+The AWS Lambda-based SFTP file transfer framework I built is working great — it handles multi-GB (10GB+) transfers using chunked streaming, Lambda chaining, and private VPC SFTP integration.
+
+I think the overall design might have patent/IP potential, since it automates large secure transfers in a fully serverless way. Would it make sense to do a quick review with the IP/legal or R&D team to see if we should file an invention disclosure?
+
+I already have a short 1–2 page summary of the architecture and differentiators if that helps with the discussion.
+
+— Himanshu
+
 
 
