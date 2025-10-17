@@ -57,5 +57,18 @@ print("python:", sys.version)
 print("_cffi_backend present:", pkgutil.find_loader("_cffi_backend") is not None)
 PY
 
+rm -rf package function.zip && mkdir -p package
+pip3 install --only-binary=:all: \
+  --platform manylinux2014_x86_64 \
+  --implementation cp \
+  --python-version 3.12 \
+  --abi cp312 \
+  -t package \
+  cffi cryptography pynacl bcrypt paramiko
+cp lambda_function.py package/
+cd package && zip -r ../function.zip . && cd ..
+aws lambda update-function-code --function-name YOUR_FUNCTION --zip-file fileb://function.zip
+
+
 
 
