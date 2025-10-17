@@ -31,3 +31,31 @@ aws lambda create-function \
   --zip-file fileb://function.zip
 
 
+  # Clean build
+rm -rf package function.zip && mkdir -p package
+
+# Install exact, prebuilt wheels for Lambda’s env
+# (includes cffi explicitly)
+pip3 install -t package --only-binary=:all: \
+  cffi cryptography pynacl bcrypt paramiko
+
+# Add your handler
+cp lambda_function.py package/
+
+# Create the deployment zip with correct layout (no extra top folder)
+cd package && zip -r ../function.zip . && cd ..
+
+# Update the function code
+aws lambda update-function-code \
+  --function-name YOUR_FUNCTION \
+  --zip-file fileb://function.zip
+
+
+python3 - <<'PY'
+import pkgutil, sys
+print("python:", sys.version)
+print("_cffi_backend present:", pkgutil.find_loader("_cffi_backend") is not None)
+PY
+
+
+
