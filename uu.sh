@@ -19,3 +19,15 @@ pip install --only-binary=:all: -t package paramiko cryptography bcrypt pynacl
 cp lambda_function.py package/
 cd package && zip -r ../function.zip .
 
+ROLE_ARN=$(aws iam get-role --role-name lambda-sftp-role --query 'Role.Arn' --output text)
+
+aws lambda create-function \
+  --function-name paramiko-sftp-fn \
+  --runtime python3.12 \
+  --role "$ROLE_ARN" \
+  --handler lambda_function.handler \
+  --timeout 900 \
+  --memory-size 1024 \
+  --zip-file fileb://function.zip
+
+
