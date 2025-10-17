@@ -13,3 +13,9 @@ aws lambda publish-layer-version \
   --zip-file fileb://paramiko-layer.zip \
   --compatible-runtimes python3.12
 
+
+mkdir -p package
+pip install --only-binary=:all: -t package paramiko cryptography bcrypt pynacl
+cp lambda_function.py package/
+cd package && zip -r ../function.zip .
+
