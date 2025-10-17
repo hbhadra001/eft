@@ -69,6 +69,8 @@ cp lambda_function.py package/
 cd package && zip -r ../function.zip . && cd ..
 aws lambda update-function-code --function-name YOUR_FUNCTION --zip-file fileb://function.zip
 
+# Create an empty 10 GB file (sparse, fast)
+fsutil file createnew "C:\temp\test10GB.bin" 10737418240
 
 
 
