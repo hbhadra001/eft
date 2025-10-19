@@ -1,6 +1,4 @@
-Perfect — here’s a **ready-to-send, 1–2 page invention summary** you can attach or share once your manager agrees to review it.
-It’s written in a format that works for most **invention disclosure / patent pre-review** templates.
-You can paste this into a Word or PDF document titled:
+
 📄 *“Invention Disclosure: Serverless Large-File Transfer Framework using AWS Lambda”*
 
 ---
@@ -14,7 +12,7 @@ You can paste this into a Word or PDF document titled:
 ## **Inventor(s)**
 
 **Himanshu Bhadra**
-(BayAreaLa8s / [Your Company Name])
+
 
 ---
 
@@ -116,6 +114,3 @@ The system intelligently divides data into configurable chunks and uses self-inv
 
 Prototype completed and validated on AWS with successful 10 GB SFTP upload. Ready for internal review and IP evaluation.
 
----
-
-Would you like me to generate a matching **architecture diagram (C2-level)** to include with this disclosure (so it’s patent-review ready)?
