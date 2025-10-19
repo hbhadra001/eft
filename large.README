@@ -1,0 +1,121 @@
+Perfect — here’s a **ready-to-send, 1–2 page invention summary** you can attach or share once your manager agrees to review it.
+It’s written in a format that works for most **invention disclosure / patent pre-review** templates.
+You can paste this into a Word or PDF document titled:
+📄 *“Invention Disclosure: Serverless Large-File Transfer Framework using AWS Lambda”*
+
+---
+
+## **Invention Title**
+
+**Serverless Framework for Large File Transfer and Processing using AWS Lambda with Dynamic Chaining and Chunked Streaming**
+
+---
+
+## **Inventor(s)**
+
+**Himanshu Bhadra**
+(BayAreaLa8s / [Your Company Name])
+
+---
+
+## **Background / Problem Statement**
+
+Traditional file-transfer and ETL frameworks rely on persistent compute (EC2, batch servers, or container jobs) to move or process large files over SFTP, limiting scalability and increasing cost.
+AWS Lambda provides a scalable serverless runtime, but its **15-minute execution limit and memory constraints** make it unsuitable for transferring files larger than a few hundred MBs.
+Existing solutions require complex orchestration (Step Functions, DataSync) or external compute, increasing maintenance overhead.
+
+There is a clear need for a **purely serverless, scalable, resumable, and fault-tolerant mechanism** to transfer **multi-GB (10GB+)** files securely to and from SFTP endpoints inside private VPCs.
+
+---
+
+## **Summary of the Invention**
+
+This invention introduces a **Lambda-based adaptive transfer framework** that enables **large file uploads and downloads over SFTP** entirely within AWS Lambda constraints.
+The system intelligently divides data into configurable chunks and uses self-invoking Lambdas to complete large transfers seamlessly.
+
+### **Core Innovations**
+
+1. **Lambda Chaining Mechanism**
+
+   * Each invocation transfers a fixed byte range (chunk).
+   * Before timeout, Lambda self-invokes asynchronously to continue the transfer from the last checkpoint.
+   * Enables continuous processing of arbitrarily large files (>10 GB) within a stateless serverless architecture.
+
+2. **Chunked Streaming via Paramiko**
+
+   * Uses Paramiko’s `file()` streaming APIs for incremental upload/write operations.
+   * Supports pipelined writes and manual checkpointing to ensure resumability without retransfer.
+
+3. **Secure Private VPC Integration**
+
+   * Lambda runs in a private subnet and connects directly to AWS Transfer Family SFTP endpoints inside the VPC.
+   * Supports host key fingerprint validation and encrypted key handling (from S3, Secrets Manager, or inline KMS-decrypted strings).
+
+4. **Resumable and Fault-Tolerant Design**
+
+   * Maintains state (offset, chunk size, total size) in event payload or DynamoDB.
+   * If a failure occurs mid-transfer, the next invocation resumes automatically.
+
+5. **Atomic Completion using Rename Semantics**
+
+   * Uploads to temporary “`.part`” files and performs atomic `rename()` to finalize—ensuring destination integrity and zero-downtime handoff.
+
+6. **Self-Serve Automation Potential**
+
+   * Framework supports dynamic JSON-based configuration, allowing customers or teams to onboard new SFTP workflows without manual coding.
+
+---
+
+## **Advantages Over Existing Solutions**
+
+| Existing Method    | Drawbacks                                              | New Framework Benefit                               |
+| ------------------ | ------------------------------------------------------ | --------------------------------------------------- |
+| EC2 / Batch jobs   | Always-on, high cost                                   | 100 % serverless, pay-per-use                       |
+| AWS DataSync       | Limited extensibility, costly for small/irregular jobs | Fully customizable and event-driven                 |
+| Standard Lambda    | Limited to ~500 MB due to 15-min runtime               | Breaks runtime barrier via chaining and checkpoints |
+| Custom FTP clients | Require manual restart on failure                      | Automatic resume and retry with durable state       |
+
+---
+
+## **Potential Applications**
+
+* Secure data ingestion from partner SFTP servers into S3 data lakes.
+* Enterprise self-serve onboarding of file-transfer workflows.
+* Automated large-file exports from AWS systems to on-prem partners.
+* Hybrid AI/ETL pipelines where files trigger downstream analytics via EventBridge.
+
+---
+
+## **Implementation Environment**
+
+* **AWS Services:** Lambda (Python 3.12), Transfer Family, S3, DynamoDB, EventBridge, Secrets Manager
+* **Language/Libraries:** Python (Paramiko, Boto3)
+* **Deployment:** Terraform or CloudFormation module with IAM least-privilege roles and optional VPC endpoints.
+
+---
+
+## **Example Claim (for Patent Review)**
+
+> A method for performing secure, large-scale file transfers using serverless functions, comprising:
+> (a) initiating an AWS Lambda instance that transfers a defined byte range of a file over SFTP;
+> (b) detecting an approaching runtime threshold and asynchronously invoking a subsequent Lambda instance with updated state;
+> (c) repeating steps (a)–(b) until completion; and
+> (d) atomically renaming a temporary file to finalize the transfer, thereby enabling uninterrupted multi-GB file movement within a stateless serverless framework.
+
+---
+
+## **Attachments**
+
+* Architecture diagram (C1–C3 views)
+* Sample CloudWatch logs showing chained transfer progression
+* Sample Terraform/IaC snippet (optional)
+
+---
+
+## **Status**
+
+Prototype completed and validated on AWS with successful 10 GB SFTP upload. Ready for internal review and IP evaluation.
+
+---
+
+Would you like me to generate a matching **architecture diagram (C2-level)** to include with this disclosure (so it’s patent-review ready)?
