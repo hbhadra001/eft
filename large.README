@@ -124,4 +124,4 @@ Scope boundaries, IAM least-privilege enforcement, and operational visibility re
 
 Security Pillar: Ensures defense-in-depth by protecting data, systems, and identities through strong authentication (Okta), least-privilege IAM, network isolation, and encryption. Continuous monitoring and vulnerability scanning maintain compliance and resilience against threats.
 
-
+Operational Excellence Pillar: Focuses on continuous improvement through automation, monitoring, and clear operational procedures. Uses Terraform for consistent deployments, CloudWatch for observability, and CI/CD pipelines for reliable, low-risk releases.
