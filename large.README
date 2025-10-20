@@ -114,3 +114,8 @@ The system intelligently divides data into configurable chunks and uses self-inv
 
 Prototype completed and validated on AWS with successful 10 GB SFTP upload. Ready for internal review and IP evaluation.
 
+
+The architecture already incorporates controls for identity and access management, input validation, cross-region resiliency, and observability. Each of these areas has been designed with mitigation strategies in place, validated through pre-production testing or embedded in our CI/CD governance framework.
+
+Scope boundaries, IAM least-privilege enforcement, and operational visibility remain core design principles, ensuring the Self-Serve Portal is secure, reliable, and fully aligned with enterprise standards.
+
