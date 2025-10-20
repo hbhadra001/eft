@@ -128,3 +128,4 @@ Operational Excellence Pillar: Focuses on continuous improvement through automat
 
 Reliability Pillar: Ensures the system consistently meets availability goals through multi-region, multi-AZ deployment, automated failover with Route 53, DynamoDB Global Tables replication, and continuous health monitoring with CloudWatch.
 
+Performance Efficiency Pillar: Delivers fast, predictable response times via Angular build optimizations (lazy loading/compression), ECS autoscaling, tuned Lambda memory/CPU, efficient DynamoDB access patterns (PK/GSIs), and regional locality with private VPC endpoints—right-sizing resources to meet demand.
