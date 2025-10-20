@@ -119,3 +119,9 @@ The architecture already incorporates controls for identity and access managemen
 
 Scope boundaries, IAM least-privilege enforcement, and operational visibility remain core design principles, ensuring the Self-Serve Portal is secure, reliable, and fully aligned with enterprise standards.
 
+
+
+
+Security Pillar: Ensures defense-in-depth by protecting data, systems, and identities through strong authentication (Okta), least-privilege IAM, network isolation, and encryption. Continuous monitoring and vulnerability scanning maintain compliance and resilience against threats.
+
+
