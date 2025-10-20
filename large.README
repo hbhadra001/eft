@@ -133,3 +133,6 @@ Performance Efficiency Pillar: Delivers fast, predictable response times via Ang
 Sustainability Pillar: Reduces environmental impact by using serverless and managed AWS services that auto-scale with demand, minimizing idle resources. Multi-region deployments are right-sized, and automation ensures efficient use of compute, storage, and networking resources.
 
 Cost Optimization Pillar: Reduces both cloud and operational costs by leveraging serverless, autoscaling AWS services and by eliminating manual onboarding processes. The self-serve design automates customer setup, saving significant time and effort while maintaining efficiency and scalability.
+
+
+Cost Optimization Pillar: Lowers cloud and operational costs by using serverless, autoscaling AWS services and automation. The self-serve model reduces reliance on engineering manpower by streamlining customer onboarding, cutting manual effort, and accelerating delivery.
