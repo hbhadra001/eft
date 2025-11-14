@@ -11,5 +11,5 @@ desired_count       = 2
 container_image_tag = "v1"
 
 # Replace with your own domain and hosted zone
-domain_name    = "selfserve.bayareala8s.com"
+domain_name    = "selfserve.abc.com"
 hosted_zone_id = "Z0792415364UCQYBG2EA3"
